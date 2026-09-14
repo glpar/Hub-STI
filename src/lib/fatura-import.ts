@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 import { emptyMonth, type EnergyMonth } from "@/lib/energy";
 
@@ -20,6 +20,26 @@ export type FaturaImport = {
 };
 
 type Grid = unknown[][];
+
+/**
+ * Normaliza o que o ExcelJS devolve numa célula: fórmula vira o valor
+ * calculado, texto rico vira texto puro, o resto passa direto.
+ */
+function cellValue(raw: unknown): unknown {
+  if (raw == null) return null;
+  if (raw instanceof Date) return raw;
+  if (typeof raw === "object") {
+    const value = raw as Record<string, unknown>;
+    if ("result" in value) return cellValue(value.result);
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return value.richText.map((part) => (part as { text?: string }).text ?? "").join("");
+    }
+    if ("text" in value) return value.text;
+    if ("error" in value) return null;
+    return null;
+  }
+  return raw;
+}
 
 function normalize(value: unknown) {
   return String(value ?? "")
@@ -92,12 +112,13 @@ function readSeries(grid: Grid, row: number, columns: number[]): (number | null)
   return columns.map((column) => toNumber(grid[row]?.[column]));
 }
 
-export function parseFaturaWorkbook(buffer: ArrayBuffer): FaturaImport {
-  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+export async function parseFaturaWorkbook(buffer: ArrayBuffer): Promise<FaturaImport> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
 
-  const sheetName =
-    workbook.SheetNames.find((name) => normalize(name).includes("BASE")) ?? workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
+  const sheet =
+    workbook.worksheets.find((item) => normalize(item.name).includes("BASE")) ??
+    workbook.worksheets[0];
 
   if (!sheet) {
     return {
@@ -110,11 +131,14 @@ export function parseFaturaWorkbook(buffer: ArrayBuffer): FaturaImport {
     };
   }
 
-  const grid = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    raw: true,
-    defval: null,
-  }) as Grid;
+  // Grade 2D com coluna 0 = A. O ExcelJS indexa a partir de 1, então
+  // descartamos a primeira posição de `row.values`.
+  const grid: Grid = [];
+  sheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    const values = Array.isArray(row.values) ? row.values : [];
+    grid[rowNumber - 1] = values.slice(1).map((cell) => cellValue(cell));
+  });
+  for (let i = 0; i < grid.length; i += 1) if (!grid[i]) grid[i] = [];
 
   const warnings: string[] = [];
 
