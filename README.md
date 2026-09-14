@@ -165,6 +165,26 @@ liberar as outras em _Equipe_.
 
 ---
 
+## Mantendo atualizado
+
+Sempre que houver novidade no projeto, rode **um comando só**:
+
+```bash
+npm run atualizar
+```
+
+Ele faz tudo na ordem certa:
+
+1. confere se você tem alteração sua não salva — se tiver, para e avisa, sem passar por cima;
+2. baixa as novidades do GitHub e lista o que mudou;
+3. instala dependências, mas só se elas mudaram;
+4. avisa, com o caminho do arquivo, se apareceu **migration nova para aplicar no Supabase**;
+5. lembra de criar o `.env.local` se ele estiver faltando.
+
+Depois é só `npm run dev`.
+
+---
+
 ## Primeiros passos dentro do sistema
 
 1. **Metas e ciclos** → crie o ciclo (ex.: _Ciclo 2026.1_) e marque como **ciclo atual**.
