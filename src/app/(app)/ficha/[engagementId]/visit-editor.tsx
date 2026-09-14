@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
+import { EDITABLE_REPORT_FIELDS } from "@/lib/report-texts";
 import type { Company, Cycle, TechnicalVisit } from "@/lib/database.types";
 import { buildTwelveMonths, type EnergyMonth } from "@/lib/energy";
 import { VISIT_SECTIONS, sectionsByBlock, type Section } from "@/lib/visit-form";
@@ -421,6 +422,63 @@ export function VisitEditor({
           </section>
         ))}
       </div>
+
+      {/* --------------------------------------------- Textos do relatório */}
+      <section className="mt-6">
+        <h2 className="section-title mb-2">Textos do relatório</h2>
+
+        <article className="card overflow-hidden">
+          <header className="p-4">
+            <button
+              type="button"
+              onClick={() => setOpen((c) => ({ ...c, textos: !(open.textos ?? false) }))}
+              className="flex w-full items-start gap-2 text-left"
+              aria-expanded={open.textos ?? false}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold">Apresentação, objetivo e conclusão</span>
+                <span className="mt-1 block text-xs leading-relaxed text-muted">
+                  O relatório já vem com a redação padrão da equipe. Edite aqui só se quiser um
+                  texto diferente para esta empresa — deixando em branco, entra o padrão.
+                </span>
+              </span>
+              <ChevronDown
+                className={`mt-0.5 h-5 w-5 shrink-0 text-muted transition ${
+                  open.textos ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </header>
+
+          {open.textos ? (
+            <div className="space-y-4 border-t border-line p-4">
+              {EDITABLE_REPORT_FIELDS.map((field) => {
+                const value = (answers.relatorio?.[field.key] as string) ?? "";
+                return (
+                  <div key={field.key}>
+                    <label className="label" htmlFor={`relatorio-${field.key}`}>
+                      {field.label}
+                    </label>
+                    <textarea
+                      id={`relatorio-${field.key}`}
+                      rows={field.rows}
+                      className="input"
+                      placeholder={field.default}
+                      value={value}
+                      onChange={(event) =>
+                        setAnswer("relatorio", field.key, event.target.value)
+                      }
+                    />
+                    {value.trim() === "" ? (
+                      <p className="mt-1 text-xs text-muted">Usando o texto padrão.</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </article>
+      </section>
 
       {/* --------------------------------------------------- Barra de salvar */}
       <div className="safe-bottom fixed inset-x-0 bottom-16 z-20 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur lg:bottom-0 lg:pl-64">

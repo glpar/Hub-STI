@@ -4,8 +4,8 @@ const STEPS = [
     body: "Acesse supabase.com, crie uma conta gratuita e um novo projeto. Escolha a região South America (São Paulo).",
   },
   {
-    title: "Rode o arquivo supabase/schema.sql",
-    body: "No painel do Supabase, abra o SQL Editor, cole todo o conteúdo do arquivo supabase/schema.sql deste projeto e execute.",
+    title: "Crie as tabelas",
+    body: "Conecte o repositório em Integrations → GitHub (os arquivos de supabase/migrations/ são aplicados sozinhos) ou cole o conteúdo da migration inicial no SQL Editor e execute.",
   },
   {
     title: "Copie as chaves para o .env.local",

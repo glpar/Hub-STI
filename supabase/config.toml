@@ -1,0 +1,4 @@
+# Configuração do projeto para a CLI e para a integração do Supabase com o GitHub.
+# O "project_id" é só o nome local do projeto; a ligação com o projeto na nuvem
+# é feita por `supabase link --project-ref <ref>` ou pela própria integração.
+project_id = "hub-sti"

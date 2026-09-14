@@ -1,6 +1,9 @@
 -- =====================================================================
 -- Hub STI - Esquema do banco de dados (Supabase / PostgreSQL)
--- Rode este arquivo inteiro no SQL Editor do Supabase.
+--
+-- Aplicado automaticamente pela integracao do Supabase com o GitHub, ou
+-- manualmente colando este arquivo no SQL Editor. Pode rodar mais de uma
+-- vez sem quebrar nada.
 -- =====================================================================
 
 create extension if not exists "pgcrypto";

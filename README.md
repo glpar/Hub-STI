@@ -112,8 +112,13 @@ próprio (sem menus, sem cortar gráfico no meio da página).
 
 ### 2. Criar as tabelas
 
-No painel do Supabase, abra **SQL Editor → New query**, cole **todo** o conteúdo de
-[`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
+Duas opções:
+
+- **Conectando o repositório ao Supabase** (Integrations → GitHub): os arquivos de
+  `supabase/migrations/` são aplicados sozinhos. Só funciona para o que está nessa pasta —
+  um `.sql` solto na raiz de `supabase/` é ignorado.
+- **Na mão:** abra **SQL Editor → New query**, cole **todo** o conteúdo de
+  [a migration inicial](supabase/migrations/20260914120000_init.sql) e clique em **Run**.
 
 Isso cria as tabelas, as regras de permissão (RLS), o bucket de arquivos `documentos`
 e já cadastra os três pilares.
@@ -198,7 +203,8 @@ src/
     stats.ts           o cálculo do X/Y e do "quanto falta"
     queries.ts         consultas ao banco
 supabase/
-  schema.sql           banco, permissões e dados iniciais
+  config.toml          configuração da CLI / integração com o GitHub
+  migrations/          banco, permissões e dados iniciais
 ```
 
 ### Mudar as seções ou os campos da ficha
