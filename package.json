@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "atualizar": "node scripts/atualizar.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
