@@ -76,7 +76,7 @@ export async function importFatura(
   }
 
   try {
-    const data = parseFaturaWorkbook(await file.arrayBuffer());
+    const data = await parseFaturaWorkbook(await file.arrayBuffer());
     if (data.months.length === 0) {
       return { error: data.warnings[0] ?? "Não consegui ler os meses da planilha." };
     }
