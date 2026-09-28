@@ -109,6 +109,10 @@ export type Trip = {
   destination: string;
   start_date: string;
   end_date: string;
+  /** Hora de saída, "HH:MM". As viagens são de táxi, quase sempre no mesmo dia. */
+  start_time: string | null;
+  /** Hora prevista de retorno. */
+  end_time: string | null;
   description: string | null;
   company_id: string | null;
   cycle_id: string | null;

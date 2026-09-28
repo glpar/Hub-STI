@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 
 
 import { Sheet } from "@/components/ui/sheet";
@@ -7,6 +9,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import type { Company, Cycle, Profile, Trip } from "@/lib/database.types";
 import { todayISO } from "@/lib/format";
 import { useSheetAction } from "@/lib/use-sheet-action";
+
+import { Switch } from "@/components/ui/switch";
 
 import { saveTrip } from "./actions";
 
@@ -30,6 +34,9 @@ export function TripSheet({
   defaultCycleId: string | null;
 }) {
   const { submit, error } = useSheetAction(saveTrip, onClose);
+  const [voltaOutroDia, setVoltaOutroDia] = useState(
+    Boolean(trip && trip.end_date !== trip.start_date),
+  );
 
   return (
     <Sheet
@@ -69,32 +76,74 @@ export function TripSheet({
           />
         </div>
 
+        <div>
+          <label className="label" htmlFor="start_date">
+            Data
+          </label>
+          <input
+            id="start_date"
+            name="start_date"
+            type="date"
+            className="input"
+            required
+            defaultValue={trip?.start_date ?? todayISO()}
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label" htmlFor="start_date">
-              Ida
+            <label className="label" htmlFor="start_time">
+              Saída
             </label>
             <input
-              id="start_date"
-              name="start_date"
-              type="date"
+              id="start_time"
+              name="start_time"
+              type="time"
               className="input"
-              required
-              defaultValue={trip?.start_date ?? todayISO()}
+              defaultValue={trip?.start_time?.slice(0, 5) ?? ""}
             />
           </div>
           <div>
-            <label className="label" htmlFor="end_date">
-              Volta
+            <label className="label" htmlFor="end_time">
+              Retorno
             </label>
             <input
-              id="end_date"
-              name="end_date"
-              type="date"
+              id="end_time"
+              name="end_time"
+              type="time"
               className="input"
-              defaultValue={trip?.end_date ?? ""}
+              defaultValue={trip?.end_time?.slice(0, 5) ?? ""}
             />
           </div>
+        </div>
+
+        <div className="rounded-xl border border-line bg-surface-2 p-3">
+          <Switch
+            checked={voltaOutroDia}
+            onChange={setVoltaOutroDia}
+            label="Volta em outro dia"
+            description="Deixe desligado para ida e volta no mesmo dia, como é de costume."
+          />
+          <input
+            type="hidden"
+            name="volta_outro_dia"
+            value={voltaOutroDia ? "on" : ""}
+          />
+
+          {voltaOutroDia ? (
+            <div className="mt-3">
+              <label className="label" htmlFor="end_date">
+                Data da volta
+              </label>
+              <input
+                id="end_date"
+                name="end_date"
+                type="date"
+                className="input"
+                defaultValue={trip?.end_date ?? ""}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
