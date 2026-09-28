@@ -82,3 +82,61 @@ export function daysUntil(value: string) {
 export function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** "08:30:00" (vindo do Postgres) → "08:30" */
+export function formatTime(value: string | null | undefined) {
+  if (!value) return null;
+  return value.slice(0, 5);
+}
+
+type TripLike = {
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
+};
+
+/**
+ * Quando a viagem acontece, em uma linha.
+ * As viagens do time são de táxi e quase sempre ida e volta no mesmo dia,
+ * então o horário é o que interessa; datas diferentes são a exceção.
+ */
+export function formatTripWhen(trip: TripLike) {
+  const saida = formatTime(trip.start_time);
+  const volta = formatTime(trip.end_time);
+  const mesmoDia = trip.start_date === trip.end_date;
+
+  if (!mesmoDia) {
+    const periodo = `${formatShortDate(trip.start_date)} a ${formatDate(trip.end_date)}`;
+    return saida ? `${periodo} · saída ${saida}` : periodo;
+  }
+
+  const data = formatDate(trip.start_date);
+  if (saida && volta) return `${data} · ${saida} às ${volta}`;
+  if (saida) return `${data} · a partir das ${saida}`;
+  if (volta) return `${data} · retorno às ${volta}`;
+  return data;
+}
+
+/** Duração da viagem no mesmo dia, ex.: "4h30". */
+export function tripDuration(trip: TripLike) {
+  if (trip.start_date !== trip.end_date) return null;
+
+  const saida = formatTime(trip.start_time);
+  const volta = formatTime(trip.end_time);
+  if (!saida || !volta) return null;
+
+  const minutos = toMinutes(volta) - toMinutes(saida);
+  if (minutos <= 0) return null;
+
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+
+  if (horas === 0) return `${resto}min`;
+  return resto === 0 ? `${horas}h` : `${horas}h${String(resto).padStart(2, "0")}`;
+}
+
+function toMinutes(time: string) {
+  const [hora, minuto] = time.split(":").map(Number);
+  return hora * 60 + (minuto ?? 0);
+}

@@ -27,7 +27,7 @@ import {
 
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Company, Cycle, Profile, Trip, TripParticipant } from "@/lib/database.types";
-import { formatDateRange, initials, todayISO } from "@/lib/format";
+import { formatTripWhen, initials, todayISO, tripDuration } from "@/lib/format";
 
 import { deleteTrip } from "./actions";
 import { TripSheet } from "./trip-sheet";
@@ -327,8 +327,11 @@ function TripCard({
             </span>
             <span className="flex items-center gap-1">
               <CalendarDays className="h-3.5 w-3.5" />
-              {formatDateRange(trip.start_date, trip.end_date)}
+              {formatTripWhen(trip)}
             </span>
+            {tripDuration(trip) ? (
+              <span className="pill bg-surface-2 text-muted">{tripDuration(trip)}</span>
+            ) : null}
           </p>
           {company ? (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted">

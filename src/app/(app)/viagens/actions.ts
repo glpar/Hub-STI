@@ -24,16 +24,28 @@ export async function saveTrip(_prev: ActionState, formData: FormData): Promise<
 
   if (!title) return { error: "Informe o motivo/título da viagem." };
   if (!destination) return { error: "Informe o destino." };
-  if (!startDate) return { error: "Informe a data de ida." };
+  if (!startDate) return { error: "Informe a data da viagem." };
 
-  const endDate = text(formData, "end_date") ?? startDate;
+  // Quase sempre é ida e volta no mesmo dia; a data de volta só entra
+  // quando a pessoa marca que dorme fora.
+  const outroDia = formData.get("volta_outro_dia") === "on";
+  const endDate = (outroDia ? text(formData, "end_date") : null) ?? startDate;
   if (endDate < startDate) return { error: "A volta não pode ser antes da ida." };
+
+  const startTime = text(formData, "start_time");
+  const endTime = text(formData, "end_time");
+
+  if (endDate === startDate && startTime && endTime && endTime <= startTime) {
+    return { error: "O horário de retorno precisa ser depois do de saída." };
+  }
 
   const payload = {
     title,
     destination,
     start_date: startDate,
     end_date: endDate,
+    start_time: startTime,
+    end_time: endTime,
     description: text(formData, "description"),
     company_id: text(formData, "company_id"),
     cycle_id: text(formData, "cycle_id"),

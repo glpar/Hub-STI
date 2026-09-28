@@ -62,6 +62,7 @@ export async function getUpcomingTrips(limit = 4): Promise<Trip[]> {
     .select("*")
     .gte("end_date", today)
     .order("start_date")
+    .order("start_time", { nullsFirst: true })
     .limit(limit);
   return (data ?? []) as Trip[];
 }

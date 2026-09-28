@@ -40,7 +40,7 @@ O painel mostra sempre no formato `X/Y` com o "faltam Z" do lado — por ciclo e
 | **Quadro** | Kanban com as colunas Prospecção → Negociação → Contratada → Execução → Finalizada (+ Não fechou). Arrasta e solta, filtra por área, com o contador `X/Y` no topo. |
 | **Empresas** | Lista com busca, ficha completa e **abas por área** — cada pessoa vê primeiro os dados técnicos do seu pilar (consumo kWh, horas de consultoria, maturidade digital…). |
 | **Ficha de visita técnica** | Só para Eficiência Energética. As 16 seções do formulário oficial do SENAI, importação da planilha de fatura, gráficos de consumo e anexo de fotos. Gera o relatório pronto para imprimir. |
-| **Viagens** | Agenda compartilhada em lista ou calendário, com participantes, empresa e observações. |
+| **Viagens** | Agenda compartilhada em lista ou calendário. Como as viagens são de táxi e quase sempre ida e volta no mesmo dia, marca-se **data, hora de saída e hora de retorno**, com a duração calculada; virar o dia é a exceção, atrás de uma chave. |
 | **Arquivos** | Upload com escolha de quem vê: **todo mundo** ou **só algumas pessoas**. |
 | **Metas e ciclos** | (admin) Cria os ciclos do ano e define a meta de empresas e de valor por área. |
 | **Equipe** | (admin) Define a área e a permissão de cada pessoa. |

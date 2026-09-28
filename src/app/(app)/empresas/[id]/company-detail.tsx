@@ -16,7 +16,7 @@ import type {
   Profile,
   Trip,
 } from "@/lib/database.types";
-import { formatCurrency, formatDate, formatDateRange } from "@/lib/format";
+import { formatCurrency, formatDate, formatTripWhen } from "@/lib/format";
 
 import { CompanySheet } from "../company-sheet";
 import { PillarPanel } from "./pillar-panel";
@@ -216,9 +216,7 @@ export function CompanyDetail({
                     <Plane className="h-4 w-4 shrink-0 text-muted" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{trip.title}</p>
-                      <p className="text-xs text-muted">
-                        {formatDateRange(trip.start_date, trip.end_date)}
-                      </p>
+                      <p className="text-xs text-muted">{formatTripWhen(trip)}</p>
                     </div>
                   </li>
                 ))}

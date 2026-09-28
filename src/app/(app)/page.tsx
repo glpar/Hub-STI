@@ -18,6 +18,7 @@ import {
   formatCurrency,
   formatDate,
   formatDateRange,
+  formatTripWhen,
   daysUntil,
   firstName,
 } from "@/lib/format";
@@ -261,7 +262,7 @@ export default async function DashboardPage({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{trip.title}</p>
                     <p className="truncate text-xs text-muted">
-                      {trip.destination} · {formatDateRange(trip.start_date, trip.end_date)}
+                      {trip.destination} · {formatTripWhen(trip)}
                     </p>
                   </div>
                 </li>

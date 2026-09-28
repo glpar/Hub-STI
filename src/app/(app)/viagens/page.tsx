@@ -13,7 +13,7 @@ export default async function TripsPage() {
   const supabase = await createClient();
 
   const [{ data: trips }, { data: participants }, companies, team] = await Promise.all([
-    supabase.from("trips").select("*").order("start_date"),
+    supabase.from("trips").select("*").order("start_date").order("start_time", { nullsFirst: true }),
     supabase.from("trip_participants").select("*"),
     getCompanies(),
     getTeam(),
