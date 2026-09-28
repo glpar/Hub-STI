@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useId, useMemo, useOptimistic, useState, useTransition } from "react";
 
 import {
   DndContext,
@@ -16,11 +16,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ArrowRight, Plus, Search, User } from "lucide-react";
+import { ArrowRight, LayoutGrid, Plus, Rows3, Search, User } from "lucide-react";
 
 import { PillarDot } from "@/components/ui/badges";
 import { Progress } from "@/components/ui/progress";
-import { STATUS_META, STATUS_ORDER, pillarTheme } from "@/lib/constants";
+import { STATUS_META, STATUS_ORDER, isClosed, isPipeline, pillarTheme } from "@/lib/constants";
 import type {
   Company,
   Cycle,
@@ -30,7 +30,7 @@ import type {
   Pillar,
   Profile,
 } from "@/lib/database.types";
-import { formatCurrency, initials } from "@/lib/format";
+import { firstName, formatCurrency, initials } from "@/lib/format";
 import { buildPillarProgress } from "@/lib/stats";
 
 import { moveEngagement } from "./actions";
@@ -46,7 +46,16 @@ type Props = {
   goals: CycleGoal[];
   currentUserId: string;
   initialPillar: string;
+  initialView: BoardView;
+  initialPerson: string;
 };
+
+/** "pessoa": uma faixa por pessoa. "geral": tudo junto, como um quadro só. */
+export type BoardView = "pessoa" | "geral";
+
+/** Chave de responsável: id da pessoa ou "sem" para cards sem responsável. */
+const SEM = "sem";
+const ownerKey = (engagement: Engagement) => engagement.owner_id ?? SEM;
 
 export function Board({
   cycle,
@@ -57,13 +66,20 @@ export function Board({
   goals,
   currentUserId,
   initialPillar,
+  initialView,
+  initialPerson,
 }: Props) {
   const [pillarFilter, setPillarFilter] = useState(initialPillar);
+  const [view, setView] = useState<BoardView>(initialView);
+  const [personFilter, setPersonFilter] = useState(initialPerson);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  // Id estável: sem ele o dnd-kit numera por contador e o HTML do servidor
+  // não bate com o do navegador (aviso de hidratação).
+  const dndId = useId();
 
   const [items, moveOptimistic] = useOptimistic(
     engagements,
@@ -83,6 +99,7 @@ export function Board({
     const term = search.trim().toLowerCase();
     return items.filter((item) => {
       if (pillarFilter !== "todas" && item.pillar_id !== pillarFilter) return false;
+      if (personFilter !== "todos" && ownerKey(item) !== personFilter) return false;
       if (!term) return true;
       const company = companyById.get(item.company_id);
       return (
@@ -91,6 +108,42 @@ export function Board({
         item.notes?.toLowerCase().includes(term)
       );
     });
+  }, [items, pillarFilter, personFilter, search, companyById]);
+
+  // Faixas da visão por pessoa: você primeiro, depois o time em ordem
+  // alfabética, e "sem responsável" no fim se houver algum card assim.
+  const lanes = useMemo(() => {
+    const me = team.find((person) => person.id === currentUserId);
+    const others = team
+      .filter((person) => person.id !== currentUserId)
+      .sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email, "pt-BR"));
+
+    const list: { key: string; person: Profile | null }[] = [
+      ...(me ? [{ key: me.id, person: me }] : []),
+      ...others.map((person) => ({ key: person.id, person })),
+    ];
+    if (items.some((item) => !item.owner_id)) list.push({ key: SEM, person: null });
+
+    return personFilter === "todos" ? list : list.filter((lane) => lane.key === personFilter);
+  }, [team, currentUserId, items, personFilter]);
+
+  // Quantos cards cada pessoa tem (respeitando área e busca, não o filtro de pessoa).
+  const countByOwner = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const map = new Map<string, number>();
+    for (const item of items) {
+      if (pillarFilter !== "todas" && item.pillar_id !== pillarFilter) continue;
+      if (term) {
+        const company = companyById.get(item.company_id);
+        const match =
+          company?.name.toLowerCase().includes(term) ||
+          company?.city?.toLowerCase().includes(term) ||
+          item.notes?.toLowerCase().includes(term);
+        if (!match) continue;
+      }
+      map.set(ownerKey(item), (map.get(ownerKey(item)) ?? 0) + 1);
+    }
+    return map;
   }, [items, pillarFilter, search, companyById]);
 
   const progress = useMemo(
@@ -117,11 +170,19 @@ export function Board({
     const { active, over } = event;
     if (!over) return;
 
-    const status = String(over.id) as EngagementStatus;
+    // Visão geral: id do alvo é a situação. Por pessoa: "responsável::situação".
+    const [laneKey, rawStatus] = String(over.id).includes("::")
+      ? String(over.id).split("::")
+      : [null, String(over.id)];
+    const status = rawStatus as EngagementStatus;
     if (!STATUS_ORDER.includes(status)) return;
 
     const engagement = items.find((item) => item.id === active.id);
     if (!engagement || engagement.status === status) return;
+
+    // Cada um cuida das suas: soltar na faixa de outra pessoa não faz nada.
+    // Trocar o responsável é pelo campo "Responsável", dentro do card.
+    if (laneKey !== null && laneKey !== ownerKey(engagement)) return;
 
     startTransition(async () => {
       moveOptimistic({ id: engagement.id, status });
@@ -151,6 +212,60 @@ export function Board({
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova empresa no quadro</span>
           </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-xl bg-surface-2 p-1" role="tablist" aria-label="Como ver o quadro">
+            <ViewButton
+              active={view === "pessoa"}
+              onClick={() => setView("pessoa")}
+              icon={<Rows3 className="h-4 w-4" />}
+              label="Por pessoa"
+            />
+            <ViewButton
+              active={view === "geral"}
+              onClick={() => setView("geral")}
+              icon={<LayoutGrid className="h-4 w-4" />}
+              label="Visão geral"
+            />
+          </div>
+        </div>
+
+        <div className="scrollbar-thin -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+          <FilterChip
+            active={personFilter === "todos"}
+            onClick={() => setPersonFilter("todos")}
+            label="Todo mundo"
+            count={[...countByOwner.values()].reduce((total, n) => total + n, 0)}
+          />
+          <FilterChip
+            active={personFilter === currentUserId}
+            onClick={() => setPersonFilter(currentUserId)}
+            label="Meu quadro"
+            count={countByOwner.get(currentUserId) ?? 0}
+          />
+          {team
+            .filter((person) => person.id !== currentUserId)
+            .sort((a, b) =>
+              (a.full_name || a.email).localeCompare(b.full_name || b.email, "pt-BR"),
+            )
+            .map((person) => (
+              <FilterChip
+                key={person.id}
+                active={personFilter === person.id}
+                onClick={() => setPersonFilter(person.id)}
+                label={firstName(person.full_name || person.email)}
+                count={countByOwner.get(person.id) ?? 0}
+              />
+            ))}
+          {countByOwner.get(SEM) ? (
+            <FilterChip
+              active={personFilter === SEM}
+              onClick={() => setPersonFilter(SEM)}
+              label="Sem responsável"
+              count={countByOwner.get(SEM) ?? 0}
+            />
+          ) : null}
         </div>
 
         <div className="scrollbar-thin -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
@@ -205,24 +320,43 @@ export function Board({
 
       {/* Quadro */}
       <DndContext
+        id={dndId}
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDraggingId(null)}
       >
-        <div className="scrollbar-thin -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:snap-none sm:px-0">
-          {STATUS_ORDER.map((status) => (
-            <Column
-              key={status}
-              status={status}
-              cards={visible.filter((item) => item.status === status)}
-              companyById={companyById}
-              personById={personById}
-              onSelect={setSelectedId}
-            />
-          ))}
-        </div>
+        {view === "geral" ? (
+          <div className="scrollbar-thin -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:snap-none sm:px-0">
+            {STATUS_ORDER.map((status) => (
+              <Column
+                key={status}
+                dropId={status}
+                status={status}
+                cards={visible.filter((item) => item.status === status)}
+                companyById={companyById}
+                personById={personById}
+                onSelect={setSelectedId}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {lanes.map((lane) => (
+              <PersonLane
+                key={lane.key}
+                laneKey={lane.key}
+                person={lane.person}
+                isMe={lane.key === currentUserId}
+                cards={visible.filter((item) => ownerKey(item) === lane.key)}
+                companyById={companyById}
+                personById={personById}
+                onSelect={setSelectedId}
+              />
+            ))}
+          </div>
+        )}
 
         <DragOverlay dropAnimation={null}>
           {dragging ? (
@@ -239,6 +373,9 @@ export function Board({
       <p className="text-xs text-muted">
         Arraste um card para mudar a situação. No celular, segure o card por um instante antes de
         arrastar — ou toque nele e use o campo <strong className="text-fg">Situação</strong>.
+        {view === "pessoa"
+          ? " Cada um movimenta as suas empresas; para passar uma empresa para outra pessoa, abra o card e troque o Responsável."
+          : null}
       </p>
 
       <NewEngagementSheet
@@ -264,16 +401,45 @@ export function Board({
   );
 }
 
+function ViewButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+        active ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 function FilterChip({
   active,
   onClick,
   label,
   pillarId,
+  count,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   pillarId?: string;
+  count?: number;
 }) {
   return (
     <button
@@ -287,30 +453,39 @@ function FilterChip({
     >
       {pillarId ? <PillarDot pillarId={pillarId} /> : null}
       {label}
+      {count !== undefined ? (
+        <span className="rounded-full bg-surface-2 px-1.5 text-xs tabular-nums">{count}</span>
+      ) : null}
     </button>
   );
 }
 
 function Column({
+  dropId,
   status,
   cards,
   companyById,
   personById,
   onSelect,
+  compact = false,
 }: {
+  dropId: string;
+  compact?: boolean;
   status: EngagementStatus;
   cards: Engagement[];
   companyById: Map<string, Company>;
   personById: Map<string, Profile>;
   onSelect: (id: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({ id: dropId });
   const meta = STATUS_META[status];
 
   return (
     <section
       ref={setNodeRef}
-      className={`flex w-[82vw] shrink-0 snap-start flex-col rounded-2xl border bg-surface-2 transition sm:w-72 ${
+      className={`flex shrink-0 snap-start flex-col rounded-2xl border bg-surface-2 transition ${
+        compact ? "w-[70vw] sm:w-60" : "w-[82vw] sm:w-72"
+      } ${
         isOver ? "border-primary ring-2 ring-primary/30" : "border-line"
       }`}
     >
@@ -322,12 +497,18 @@ function Column({
             {cards.length}
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-muted">{meta.description}</p>
+        {compact ? null : (
+          <p className="mt-0.5 text-[11px] leading-snug text-muted">{meta.description}</p>
+        )}
       </header>
 
-      <div className="flex min-h-24 flex-1 flex-col gap-2 p-3">
+      <div className={`flex flex-1 flex-col gap-2 p-3 ${compact ? "min-h-16" : "min-h-24"}`}>
         {cards.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-xs text-muted">
+          <p
+            className={`rounded-xl border border-dashed border-line px-3 text-center text-xs text-muted ${
+              compact ? "py-3" : "py-6"
+            }`}
+          >
             Nada aqui
           </p>
         ) : (
@@ -342,6 +523,70 @@ function Column({
           ))
         )}
       </div>
+    </section>
+  );
+}
+
+function PersonLane({
+  laneKey,
+  person,
+  isMe,
+  cards,
+  companyById,
+  personById,
+  onSelect,
+}: {
+  laneKey: string;
+  person: Profile | null;
+  isMe: boolean;
+  cards: Engagement[];
+  companyById: Map<string, Company>;
+  personById: Map<string, Profile>;
+  onSelect: (id: string) => void;
+}) {
+  const name = person ? person.full_name || person.email : "Sem responsável";
+  const abertas = cards.filter((item) => isPipeline(item.status)).length;
+  const fechadas = cards.filter((item) => isClosed(item.status)).length;
+
+  return (
+    <section className="card overflow-hidden" aria-label={`Quadro de ${name}`}>
+      <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            person ? "bg-primary text-primary-fg" : "bg-surface-2 text-muted"
+          }`}
+        >
+          {person ? initials(name) : <User className="h-4 w-4" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold">
+            {name}
+            {isMe ? <span className="ml-1.5 text-xs font-normal text-muted">(você)</span> : null}
+          </p>
+          <p className="text-xs text-muted">
+            {cards.length === 0
+              ? "Nenhuma empresa no quadro"
+              : `${cards.length} empresa${cards.length === 1 ? "" : "s"} · ${abertas} em aberto · ${fechadas} fechada${fechadas === 1 ? "" : "s"}`}
+          </p>
+        </div>
+      </header>
+
+      {cards.length > 0 ? (
+        <div className="scrollbar-thin flex snap-x snap-mandatory gap-3 overflow-x-auto p-3 sm:snap-none">
+          {STATUS_ORDER.map((status) => (
+            <Column
+              key={status}
+              compact
+              dropId={`${laneKey}::${status}`}
+              status={status}
+              cards={cards.filter((item) => item.status === status)}
+              companyById={companyById}
+              personById={personById}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

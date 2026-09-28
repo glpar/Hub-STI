@@ -118,9 +118,13 @@ export async function updateEngagement(
   return { ok: true };
 }
 
-/** Usado pelo arrastar-e-soltar do quadro. */
+/** Usado pelo arrastar-e-soltar do quadro: muda só a situação. */
 export async function moveEngagement(id: string, status: EngagementStatus) {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessão expirada. Entre novamente." };
 
   const patch: Partial<Engagement> = { status, updated_at: new Date().toISOString() };
   if (status === "contratada") {
